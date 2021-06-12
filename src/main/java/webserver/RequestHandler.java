@@ -4,6 +4,7 @@ import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -40,11 +41,17 @@ public class RequestHandler extends Thread {
 
             String[] tokens = line.split(" ");
             int bodyLength = 0;
+            boolean loginYn = false;
+
             while (!line.equals("")) {
                 line = br.readLine();
                 log.debug("request header : {}", line);
                 if (line.startsWith("Content-Length")) {
                     bodyLength = getContentLength(line);
+                }
+
+                if (line.contains("Cookie")) {
+                    loginYn = isLogin(line);
                 }
             }
 
@@ -78,6 +85,35 @@ public class RequestHandler extends Thread {
                 } else {
                     responseResource(out, "/user/login_failed.html");
                 }
+            } else if (url.startsWith("/user/list")) {
+                if (loginYn == false) {
+                    responseResource(out, "/user/login.html");
+                    return;
+                }
+
+                Collection<User> users = DataBase.findAll();
+                StringBuilder sb = new StringBuilder();
+                sb.append("<table border='1'>");
+
+                for (User user : users) {
+                    sb.append("<tr>");
+                    sb.append("<td>" + user.getUserId() + "</td>");
+                    sb.append("<td>" + user.getName() + "</td>");
+                    sb.append("<td>" + user.getEmail() + "</td>");
+                    sb.append("</tr>");
+                }
+
+                sb.append("</table>");
+
+                byte[] body = sb.toString().getBytes();
+                DataOutputStream dos = new DataOutputStream(out);
+                response200Header(dos, body.length);
+                responseBody(dos, body);
+            } else if (url.endsWith(".css")) {
+                DataOutputStream dos = new DataOutputStream(out);
+                byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
+                response200CssHeader(dos, body.length);
+                responseBody(dos, body);
             } else {
                 responseResource(out, url);
             }
@@ -87,8 +123,30 @@ public class RequestHandler extends Thread {
         }
     }
 
+    private boolean isLogin(String line) {
+        String[] cookies = line.split(":");
+        Map<String, String> cookie= HttpRequestUtils.parseCookies(cookies[1].trim());
+        String logined = cookie.get("logined");
+
+        if (logined == null) {
+            return false;
+        }
+        return Boolean.parseBoolean(logined);
+    }
+
     private int getContentLength(String line) {
         return Integer.parseInt(line.split(":")[1].trim());
+    }
+
+    private void response200CssHeader(DataOutputStream dos, int lengthofBodyContent) {
+        try {
+            dos.writeBytes("HTTP/1.1 200 OK \n");
+            dos.writeBytes("Content-Type: text/css\r\n");
+            dos.writeBytes("Content-Length: " + lengthofBodyContent + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
     }
 
     private void responseResource(OutputStream out, String url) throws IOException {
