@@ -34,6 +34,11 @@ public class HttpRequest {
                 headers.put(tokens[0].trim(), tokens[1].trim());
                 line = br.readLine();
             }
+
+            if (method.equals("POST")) {
+                String queryString = IOUtils.readData(br, Integer.parseInt(getHeader("Content-Length")));
+                params = HttpRequestUtils.parseQueryString(queryString);
+            }
         } catch (IOException e) {
             log.error(e.getMessage());
         }
