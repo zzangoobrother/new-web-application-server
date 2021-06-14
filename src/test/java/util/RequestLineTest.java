@@ -12,17 +12,17 @@ public class RequestLineTest {
     public void create_method() {
         RequestLine line = new RequestLine("GET /index.html HTTP/1.1");
 
-        assertEquals(line.getMethod(), "GET");
+        assertEquals(line.getMethod(), HttpMethod.GET);
         assertEquals(line.getPath(), "/index.html");
 
         line = new RequestLine("POST /index.html HTTP/1.1");
-        assertEquals(line.getMethod(), "POST");
+        assertEquals(line.getMethod(), HttpMethod.POST);
     }
 
     @Test
     public void create_path_and_params() {
         RequestLine line = new RequestLine("GET /user/create?userId=seonkang&password=password&name=SeonKang& HTTP/1.1");
-        assertEquals(line.getMethod(), "GET");
+        assertEquals(line.getMethod(), HttpMethod.GET);
         assertEquals(line.getPath(), "/user/create");
         Map<String, String> params = line.getParams();
         assertEquals(params.size(), 3);
