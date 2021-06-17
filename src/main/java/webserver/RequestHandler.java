@@ -1,5 +1,7 @@
 package webserver;
 
+import controller.Controller;
+import controller.RequestMapping;
 import db.DataBase;
 import model.User;
 import org.slf4j.Logger;
@@ -32,71 +34,18 @@ public class RequestHandler extends Thread {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
             HttpRequest httpRequest = new HttpRequest(in);
             HttpResponse httpResponse = new HttpResponse(out);
-            String path = getDefaultPath(httpRequest.getPath());
 
-            if ("/user/create".equals(path)) {
-                User user = new User(
-                        httpRequest.getParameter("userId"),
-                        httpRequest.getParameter("password"),
-                        httpRequest.getParameter("name"),
-                        httpRequest.getParameter("email")
-                );
-                DataBase.addUser(user);
-                log.debug("user : {}", user);
+            Controller controller = RequestMapping.getController(httpRequest.getPath());
 
-                httpResponse.sendRedirect("/index.html");
-            } else if ("/user/login".startsWith(path)) {
-                User user = DataBase.findUserById(httpRequest.getParameter("userId"));
-
-                if (user == null) {
-                    httpResponse.forward("/user/login_failed.html");
-                    return;
-                }
-
-                if (user.getPassword().equals(httpRequest.getParameter("password"))) {
-                    httpResponse.addHeader("Set-Cookie", "logined=true");
-                    httpResponse.sendRedirect("/index.html");
-                } else {
-                    httpResponse.forward("/user/login_failed.html");
-                }
-            } else if ("/user/list".equals(path)) {
-                if (!isLogin(httpRequest.getHeader("Cookie"))) {
-                    httpResponse.forward("/user/login.html");
-                    return;
-                }
-
-                Collection<User> users = DataBase.findAll();
-                StringBuilder sb = new StringBuilder();
-                sb.append("<table border='1'>");
-
-                for (User user : users) {
-                    sb.append("<tr>");
-                    sb.append("<td>" + user.getUserId() + "</td>");
-                    sb.append("<td>" + user.getName() + "</td>");
-                    sb.append("<td>" + user.getEmail() + "</td>");
-                    sb.append("</tr>");
-                }
-
-                sb.append("</table>");
-
-                httpResponse.forwardBody(sb.toString());
-            } else {
+            if (controller == null) {
+                String path = getDefaultPath(httpRequest.getPath());
                 httpResponse.forward(path);
+            } else {
+                controller.service(httpRequest, httpResponse);
             }
-
         } catch (IOException e) {
             log.error(e.getMessage());
         }
-    }
-
-    private boolean isLogin(String cookieValue) {
-        Map<String, String> cookie= HttpRequestUtils.parseCookies(cookieValue);
-        String logined = cookie.get("logined");
-
-        if (logined == null) {
-            return false;
-        }
-        return Boolean.parseBoolean(logined);
     }
 
     private String getDefaultPath(String path) {
